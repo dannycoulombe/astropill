@@ -13,17 +13,20 @@
   .endproc
 
   .proc disableNMI
-    LDA #%00000000
+    LDA #0
     STA PPUCTRL
-    LDA #%00000000
     STA PPUMASK
+    STA APU_CHANCTRL
+    STA APU_MODCTRL
+    lda #$40
+    sta APU_PAD2
     RTS
   .endproc
 
   .proc enableNMI
-    LDA #%10010000                  ; enable NMI, sprites from pattern table 0, background from pattern table 1
+    LDA #%10001000                  ; enable NMI, sprites from pattern table 0, background from pattern table 1
     STA PPUCTRL
-    LDA #%00011110                  ; background and sprites enable, no clipping on left
+    LDA #%10011110                  ; background and sprites enable, no clipping on left
     STA PPUMASK
     RTS
   .endproc

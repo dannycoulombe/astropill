@@ -30,6 +30,8 @@
       ADC #$02                        ; A = A + 1
       STA $0203                       ; save sprite X position
     ReadRightDone:                      ; handling this button is done
+
+    RTS
   .endproc
 
   .proc latch
