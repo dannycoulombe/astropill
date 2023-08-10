@@ -8,15 +8,21 @@
   .byte $00, $00, $00, $00, $00
 
 .segment "ZEROPAGE"
-  VAR:  .RES 1                              ; reserves 1 byte of memory for a variable named VAR
-
-.segment "STARTUP"
+  frame_counter: .res 1
 
 .segment "RAM"
+  ;  byte    0 = length of data (0 = no more data)
+  ;  byte    1 = high byte of target PPU address
+  ;  byte    2 = low byte of target PPU address
+  ;  byte    3 = drawing flags:
+  ;                bit 0 = set if inc-by-32, clear if inc-by-1
+  ;  bytes 4-X = the data to draw (number of bytes determined by the length)
+  display_buffer: .res 512
 
 .segment "OAM"
   oam: .res 256        ; sprite OAM data to be uploaded by DMA
 
+.segment "STARTUP"
 .segment "CODE"
 
   ; Define variables
@@ -25,28 +31,19 @@
   ; Prepare utils
   .include "utils/apu.s"
   .include "utils/ppu.s"
+  .include "utils/program.s"
 
-  ; Prepare states
+  ; Prepare STAtes
   .include "states/palette.s"
   .include "states/background.s"
-;  .include "states/sprite.s"
   .include "states/controller.s"
+  .include "states/title.s"
 
   ; Load drivers
   .include "drvs/famistudio.s"
 
   .proc reset
-    SEI
-
-    ; Turn off NMI and rendering
-    JSR PPU::disableNMI
-    CLD                             ; Clear Decimal Mode (2A03 does not support BCD)
-    ldx #$FF
-    txs       ; initialize stack
-
-    ; PPU warm up
-    LDA PPUSTATUS
-    JSR PPU::vBlankWait
+    JSR Program::init
 
     ; Clear memory
     LDX #0
@@ -61,48 +58,15 @@
       STA $0700,x
       INX
       BNE ClearRAM
-
     JSR PPU::vBlankWait
-
-    ; Activate DMA (direct memory access) by setting low and high byte
-    ActivateDMA:
-      LDA #$00
-      STA OAMADDR                     ; set the low byte (00) of the RAM address
-      LDA #$02
-      STA OAMDMA                      ; set the high byte (02) of the RAM address, start the transfer
-    NOP
-
-    LDA PPUSTATUS
-    LDA #$3F
-    STA PPUADDR
-    LDA #$00
-    STA PPUADDR
-
-;    JSR Palette::init
-;    JSR Sprite::init
 
     ;Turn on NMI and rendering
     JSR Background::init
-    JSR PPU::resetScrolling
+    JSR APU::loadSong
+    JSR PPU::enableBackground
     JSR PPU::enableNMI
-    JSR APU::playSong
     CLI
-
-    @draw_done:
-      jsr famistudio_update ; TODO: Call in NMI.
-      LDX #0
-      LDY #0
-      @outer_loop_nop:
-      @inner_loop_nop:
-        NOP
-        INY
-        CPY #255
-        BNE @inner_loop_nop
-        INX
-        CPX #12
-        BNE @outer_loop_nop
-
-      JMP @draw_done ; Dont allow update if we already have an update pending.
+    CLC
 
     ; Loop indefinitely
     Forever:
@@ -110,8 +74,32 @@
   .endproc
 
   .proc nmi
-;    JSR PPU::vBlankWait
+
+    ; NMIs can happen at any given time, so we back up registers (important)
+    PHA
+    TXA
+    PHA
+    TYA
+    PHA
+
+    JSR PPU::vBlankWait
+
 ;    JSR Controller::init
+;    INC frame_counter
+
+    JSR APU::progressSong
+    JSR Title::animateBackground
+    JSR PPU::resetScrolling
+    JSR PPU::renderDisplayBuffer
+
+    ; Restore registers
+    PLA
+    TAY
+    PLA
+    TAX
+    PLA
+    RTI
+
     RTI
   .endproc
 

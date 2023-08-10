@@ -5,7 +5,7 @@
     RTS
   .endproc
 
-  .proc playSong
+  .proc loadSong
     ldy #<music_data_astropill_intro
     ldy #>music_data_astropill_intro
 
@@ -17,6 +17,12 @@
     RTS
   .endproc
 
+  .proc progressSong
+    jsr famistudio_update
+    RTS
+  .endproc
+
+  ; Just a static sound with Square1.. it'll do BEEEEEEEEEEEP indefinitely
   .proc test
     lda #%00000001
     sta $4015 ;enable Square 1

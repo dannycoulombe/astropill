@@ -1,4 +1,5 @@
 .scope PPU
+
   .proc vBlankWait
     BIT PPUSTATUS
     BPL vBlankWait
@@ -13,21 +14,26 @@
   .endproc
 
   .proc disableNMI
-    LDA #0
-    STA PPUCTRL
-    STA PPUMASK
-    STA APU_CHANCTRL
-    STA APU_MODCTRL
-    lda #$40
-    sta APU_PAD2
+    lda PPUCTRL ; Load current value of PPUCTRL register
+    and #%11111110 ; Clear the NMI enable bit (bit 0)
+    sta PPUCTRL ; Store the updated value back to PPUCTRL register
     RTS
   .endproc
 
   .proc enableNMI
-    LDA #%10001000                  ; enable NMI, sprites from pattern table 0, background from pattern table 1
-    STA PPUCTRL
-    LDA #%10011110                  ; background and sprites enable, no clipping on left
+    lda PPUCTRL ; Load current value of PPUCTRL register
+    ora #%10000000 ; Set the NMI enable bit (bit 0)
+    sta PPUCTRL ; Store the updated value back to PPUCTRL register
+    RTS
+  .endproc
+
+  .proc enableBackground
+    LDA #%00001000                  ; background and sprites enable, no clipping on left
     STA PPUMASK
+    RTS
+  .endproc
+
+  .proc renderDisplayBuffer
     RTS
   .endproc
 .endscope
